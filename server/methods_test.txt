@@ -1,0 +1,28 @@
+function write_stream_method(items) {
+    const headers = Object.keys(items[0]);
+    const fs_stream = fs.createWriteStream(csv_path);
+    const rows = [];
+    rows.push(headers);
+    items.forEach(item => {
+        let temp_row = headers.map(header => item[header])
+        rows.push(temp_row)
+    });
+    writeToStream(fs_stream, rows);
+}
+
+function write_pipe_methods(data) {
+    const csvStream = format({ headers: true });
+    const fs_stream = fs.createWriteStream(csv_path);
+    csvStream.pipe(fs_stream);
+    for (let item of data) {
+        csvStream.write(item);
+    }
+    csvStream.end();
+}
+function write_pipe_methods_additional(row) {
+    const csvStream = format({ headers: true });
+    const fs_stream = fs.createWriteStream(csv_path);
+    csvStream.pipe(fs_stream);
+    csvStream.write(row);
+    csvStream.end();
+}

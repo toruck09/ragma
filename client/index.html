@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body>
+    <form id="user_form" action="" class="max-w-sm mx-auto my-3">
+        <div class="mb-5">
+            <label for="user_query" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Término a
+                buscar:</label>
+            <input type="text" id="user_query"
+                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                required>
+        </div>
+        <input type="radio" id="db_option" value="true" />
+        <label for="db_option">Usar Base de datos</label>
+        <button type="submit"
+            class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Buscar</button>
+    </form>
+    <div id="result_table" class="table-auto relative overflow-x-auto max-w-2xl mx-auto"></div>
+    <a href="create.html" class="inline-flex items-center font-medium text-blue-600 dark:text-blue-500 hover:underline">
+        Añade un record
+        <svg class="w-4 h-4 ms-2 rtl:rotate-180" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none"
+            viewBox="0 0 14 10">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M1 5h12m0 0L9 1m4 4L9 9" />
+        </svg>
+    </a>
+    <script>
+
+        document.getElementById("user_form").addEventListener('submit', (event) => {
+            event.preventDefault();
+            const query = document.getElementById("user_query").value;
+
+            fetch(`http://127.0.0.1:4322/api/v1/search?q=${query}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length == 0) {
+                        document.getElementById("result_table").innerHTML = "<p style=\"color:blue\">No data found:</p>";
+                        return;
+                    }
+                    const user_table = document.getElementById("result_table");
+                    user_table.innerHTML = "<p>Resultados de busqueda:</p><pre>";
+
+                    let table = document.createElement("table");
+                    table.classList.add("w-full", "text-sm", "text-left")
+                    let tHead = document.createElement("thead");
+                    //table.classList.add("w-full", "text-sm", "text-left", "text-gray-500")
+                    let headerRow = tHead.insertRow(0);
+                    headerRow.classList.add("bg-white", "border-b")
+
+                    for (let key in data[0]) {
+                        let th = document.createElement("th");
+                        th.textContent = key;
+                        th.classList.add("px-6", "py-3", "bg-gray-50");
+                        headerRow.appendChild(th);
+                    }
+                    table.appendChild(tHead)
+                    // Create data rows
+                    let tBody = document.createElement("tbody");
+                    data.forEach(function (item) {
+                        let row = tBody.insertRow();
+                        row.classList.add("bg-white", "border-b")
+                        for (let key in item) {
+                            let cell = row.insertCell();
+                            cell.textContent = item[key];
+                        }
+                    });
+                    table.appendChild(tBody)
+
+                    user_table.appendChild(table);
+
+                })
+                .catch(error => {
+                    // Display an error message if the fetch fails
+                    document.getElementById("result_table").innerHTML = "<p style=\"color:red\">Error:</p><pre>" + error + "</pre>";
+                });
+        })
+    </script>
+</body>
+
+
+</html>
