@@ -11,9 +11,14 @@ const { LocalIndex } = require('vectra');
 
 let index = null;
 if (process.env.MODE == "vectra") {
-    console.log('running vectra', process.env.MODE)
+    console.log('Running vectra', process.env.MODE)
     index = new LocalIndex(path.join(__dirname, 'index'));
 }
+
+let program_params = {}
+process.argv.forEach(function (val) {
+    program_params[val] = true;
+});
 
 class CsvFile {
     static write(filestream, rows, options) {
@@ -714,14 +719,22 @@ async function save_records_db(data) {
 }
 
 async function load_main_data() {
+
     if (process.env.MODE == "pg") {
+        console.log('running dev')
         await client.connect();
         await pgvector.registerType(client);
     }
+
     if (fs.existsSync(path.resolve(__dirname, csv_path))) {
         if (df.length === 0) {
             const data = await csvFile.read({ headers: true }, row => ({ ...row, embedding: row.embedding.split(',').map(Number) }));
             df.push(...data);
+        }
+
+        if (program_params.hasOwnProperty('save_db') && process.env.MODE == "pg") {
+            console.log('Saving records for the first time')
+            await save_records_db(df);
         }
         return;
     }
@@ -729,17 +742,13 @@ async function load_main_data() {
     //this codes executes if no animes csv file exist
     const data_with_embeddings = [];
     const batchSize = 300;
-    for (let i = 0; i < souce_data.length; i += batchSize) {
-        const batch = souce_data.slice(i, i + batchSize);
+    for (let i = 0; i < source_data.length; i += batchSize) {
+        const batch = source_data.slice(i, i + batchSize);
         //let embeddingResults = await create_embedding(batch.map(item => item.description_big + '\n Generes:' + item.genere));
         let modified_elements = batch.map((item, index) => ({ ...item, embedding: embeddingResults[index] }));
         data_with_embeddings.push(...modified_elements);
     }
     df.push(...data_with_embeddings);
-
-    if (process.env.PG_SUPPORT) {
-        await save_records_db(df);
-    }
 
     csvFile
         .create(data_with_embeddings)
@@ -777,6 +786,7 @@ function relatedness_fn(A, B) {
 
     return similarity;
 }
+
 function compareFn(a, b) {
     //we compare similarity values
     if (a[1] < b[1]) {
@@ -792,7 +802,6 @@ app.get('/api/v1/search', async (req, res) => {
     const searchTerm = req.query.q;
 
     if (!searchTerm) return res.json([]);
-    console.log(process.env.MODE)
     const result = [];
     if (process.env.MODE == "simple") {
         for (let item of df) {
@@ -815,12 +824,14 @@ app.get('/api/v1/search', async (req, res) => {
         return res.status(200).json(result_array);
     }
 
+    // vectra mode search on index.json
     if (process.env.MODE == "vectra") {
         const results = await index.queryItems(query_response[0], 3);
         let result_array = results.map(result => ({ Titulo: result.item.metadata.title, Descripcion: result.item.metadata.description_small, Genero: result.item.metadata.genere }));
         return res.status(200).json(result_array);
     }
 
+    // Default calculation using manual cosine similarity
     let strings_and_relatednesses = [];
     for (let item of df) {
         strings_and_relatednesses.push([{ Titulo: item.title, Descripcion: item.description_small, Genero: item.genere }, relatedness_fn(query_response[0], item.embedding)])
